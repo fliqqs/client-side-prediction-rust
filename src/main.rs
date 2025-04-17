@@ -2,12 +2,7 @@ mod client;
 mod server;
 
 use macroquad::prelude::*;
-use serde_json::json;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::{Rc, Weak};
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::client::Client;
 use crate::server::Server;
 
 struct Entity {
@@ -19,8 +14,8 @@ struct Entity {
 impl Entity {
     fn new(entity_id: u32) -> Self {
         Entity {
-            x: 0.0,
-            speed: 10,
+            x: 40.0,
+            speed: 10000,
             entity_id,
         }
     }
@@ -30,6 +25,7 @@ impl Entity {
     }
 }
 
+#[derive(Debug)]
 enum Message {
     Movement(MovementInput),
     WorldState(WorldStateMessage),
@@ -66,20 +62,28 @@ impl LagNetwork {
     fn send(&mut self, lag_ms: f32, message: Message) {
         let now = SystemTime::now();
         let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
-        let receive_time = duration_since_epoch.as_secs_f32();
+
+
+        //set recv time to time now + lag_ms
+        let current_time = duration_since_epoch.as_secs_f32();
+        let receive_time = current_time + lag_ms / 1000.0;
+
 
         // make the NetworkMessage
         let network_message = NetworkMessage {
             receive_time: receive_time,
             payload: message,
         };
-        self.messages.push(network_message);
 
-        //print the queue
-        // println!("Network queue: {:?}", self.messages);
+        println!("Sending message: {:?}", network_message.payload);
+
+        self.messages.push(network_message);
     }
 
     fn receive(&mut self) -> Option<Message> {
+
+        println!("what is msg length: {}", self.messages.len());
+
         if self.messages.len() == 0 {
             return None;
         }
@@ -89,8 +93,12 @@ impl LagNetwork {
             let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
             let current_time = duration_since_epoch.as_secs_f32();
 
-            if current_time - v.receive_time >= 0.1 {
+            println!("current time: {}", current_time);
+            println!("receive time: {}", v.receive_time);
+
+            if current_time >= v.receive_time {
                 let message = self.messages.remove(i);
+                println!("returning : {:?}", message.payload);
                 return Some(message.payload);
             }
         }
@@ -134,14 +142,28 @@ async fn main() {
         // Clear the screen for each frame
         clear_background(LIGHTGRAY);
 
-
-
         // Drawing shapes (for visualization)
-        draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-        draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-        draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
+        // draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
+        // draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
+        // draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
 
-        draw_text("HELLO", 20.0, 20.0, 30.0, DARKGRAY);
+        draw_text("Server View", 20.0, 20.0, 30.0, DARKGRAY);
+
+
+        // Draw Server Entities
+        for (id, entity) in server.borrow().entities.iter() {
+            draw_text(&format!("Entity {}: x = {}", id, entity.x), 20.0, 20.0 + (*id as f32 * 20.0), 20.0, DARKGRAY);
+            // Draw the entity as a rectangle
+            draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, BLUE);
+        }
+
+        draw_text("Client 1 View", 20.0, 150.0, 30.0, DARKGRAY);
+        // Draw Client 1 Entities
+        for (id, entity) in client1.borrow().entities.iter() {
+            draw_text(&format!("Client 1 Entity {}: x = {}", id, entity.x), 20.0, 150.0 + (*id as f32 * 20.0), 20.0, DARKGRAY);
+            // Draw the entity as a rectangle
+            draw_rectangle(entity.x, 200.0 + (*id as f32 * 20.0), 20.0, 20.0, BLUE);
+        }
 
         // Update server and clients at their respective intervals
         server.borrow_mut().update(delta_time);

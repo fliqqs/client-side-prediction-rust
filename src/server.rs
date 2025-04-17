@@ -9,7 +9,7 @@ pub(crate) struct Server {
     network: LagNetwork,
     time_since_last_update: f32,
     update_interval: f32, // 20ms for server update interval
-    entities: HashMap<u32, Entity>,
+    pub(crate) entities: HashMap<u32, Entity>,
 }
 
 impl Server {
@@ -30,6 +30,12 @@ impl Server {
         )));
 
         server.borrow_mut().clients.push(client.clone());
+
+        // Create an entity for the client
+        let entity_id = server.borrow().clients.len() as u32;
+        let entity = Entity::new(entity_id);
+        server.borrow_mut().entities.insert(entity_id, entity);
+
         client
     }
 
@@ -40,12 +46,18 @@ impl Server {
     fn processInputs(&mut self) {
         while true {
             if let Some(msg) = self.network.receive() {
+
+                println!("Processing message: {:?}", msg);
+
                 match msg {
                     Message::Movement(movement_input) => {
                         // update the entry if it exists
                         if let Some(entity) = self.entities.get_mut(&movement_input.entity_id) {
                             entity.applyInput(movement_input);
                             println!("Entity {} moved to x: {}", entity.entity_id, entity.x);
+                        }
+                        else {
+                            print!("Entity {} not found.", movement_input.entity_id);
                         }
                     }
                     Message::WorldState(world_state) => {
@@ -59,6 +71,9 @@ impl Server {
     }
 
     fn sendWorldState(&mut self) {
+
+        println!("Sending world state to clients...");
+
         let mut world_state = Vec::new();
         for (id, entity) in &self.entities {
             world_state.push(world_state {
@@ -74,7 +89,7 @@ impl Server {
         for client in &self.clients {
             let mut client = client.borrow_mut();
             client
-                .lag_network
+                .network
                 .send(0.1, Message::WorldState(world_state_message.clone()));
         }
     }
@@ -92,10 +107,9 @@ impl Server {
         }
 
         for msg in messages {
+            println!("putting msg in server queue: {:?}", msg);
             self.network.send(0.0, msg); // Process outside of client loop
         }
-
-
 
         // do server updates
         self.time_since_last_update += delta_time;
@@ -105,12 +119,8 @@ impl Server {
             // println!("Server updated!");
             println!("Server updated!");
             // Process inputs and send world state
-            // self.processInputs();
-            // self.sendWorldState();
+            self.processInputs();
+            self.sendWorldState();
         }
-
-
-        // self.processInputs();
-        // self.sendWorldState();
     }
 }
