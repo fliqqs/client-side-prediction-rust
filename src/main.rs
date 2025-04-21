@@ -1,9 +1,18 @@
 mod client;
 mod server;
 
-use macroquad::prelude::*;
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::client::Client;
 use crate::server::Server;
+use macroquad::math::f32;
+use macroquad::prelude::*;
+use macroquad::ui::{
+    hash, root_ui,
+    widgets::{self, Group},
+    Drag, Ui,
+};
+use std::cell::{RefCell, RefMut};
+use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 struct Entity {
     x: f32,
@@ -63,11 +72,9 @@ impl LagNetwork {
         let now = SystemTime::now();
         let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
 
-
         //set recv time to time now + lag_ms
         let current_time = duration_since_epoch.as_secs_f32();
         let receive_time = current_time + lag_ms / 1000.0;
-
 
         // make the NetworkMessage
         let network_message = NetworkMessage {
@@ -81,7 +88,6 @@ impl LagNetwork {
     }
 
     fn receive(&mut self) -> Option<Message> {
-
         println!("what is msg length: {}", self.messages.len());
 
         if self.messages.len() == 0 {
@@ -103,6 +109,27 @@ impl LagNetwork {
             }
         }
         return None;
+    }
+}
+
+// function for drawing things on the screen
+fn draw_client_entities(client: RefMut<Client>, y_offset: f32) {
+    for (id, entity) in client.entities.iter() {
+        draw_text(
+            &format!("Client Entity {}: x = {}", id, entity.x),
+            20.0,
+            y_offset + (*id as f32 * 20.0),
+            20.0,
+            DARKGRAY,
+        );
+        // Draw the entity as a rectangle
+        draw_rectangle(
+            entity.x,
+            y_offset + 40.0 + (*id as f32 * 20.0),
+            20.0,
+            20.0,
+            BLUE,
+        );
     }
 }
 
@@ -141,28 +168,46 @@ async fn main() {
 
         // Clear the screen for each frame
         clear_background(LIGHTGRAY);
-
-        // Drawing shapes (for visualization)
-        // draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-        // draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-        // draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
-
         draw_text("Server View", 20.0, 20.0, 30.0, DARKGRAY);
-
 
         // Draw Server Entities
         for (id, entity) in server.borrow().entities.iter() {
-            draw_text(&format!("Entity {}: x = {}", id, entity.x), 20.0, 20.0 + (*id as f32 * 20.0), 20.0, DARKGRAY);
+            draw_text(
+                &format!("Entity {}: x = {}", id, entity.x),
+                20.0,
+                20.0 + (*id as f32 * 20.0),
+                20.0,
+                DARKGRAY,
+            );
             // Draw the entity as a rectangle
             draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, BLUE);
         }
 
-        draw_text("Client 1 View", 20.0, 150.0, 30.0, DARKGRAY);
-        // Draw Client 1 Entities
-        for (id, entity) in client1.borrow().entities.iter() {
-            draw_text(&format!("Client 1 Entity {}: x = {}", id, entity.x), 20.0, 150.0 + (*id as f32 * 20.0), 20.0, DARKGRAY);
-            // Draw the entity as a rectangle
-            draw_rectangle(entity.x, 200.0 + (*id as f32 * 20.0), 20.0, 20.0, BLUE);
+        {
+            let mut client1 = client1.borrow_mut();
+            draw_client_entities(client1, 150.0);
+        }
+
+        {
+            let client1_ui = client1.clone();
+            let client2_ui = client2.clone();
+            widgets::Window::new(hash!(), vec2(400., 200.), vec2(320., 400.))
+                .label("Settings")
+                .titlebar(true)
+                .ui(&mut *root_ui(), move |ui| {
+                    let mut client = client1_ui.borrow_mut(); // RefMut here
+                    let mut client2 = client2_ui.borrow_mut(); // RefMut here
+                    ui.label(
+                        Vec2::new(10., 10.),
+                        &format!("Client 1 Prediction?: {}", client.client_side_prediction),
+                    );
+                    if ui.button(Vec2::new(10., 30.), "Toggle Prediction Client 1") {
+                        client.client_side_prediction = !client.client_side_prediction;
+                    }
+                    if ui.button(Vec2::new(10., 50.), "Toggle Prediction Client 2") {
+                        client2.client_side_prediction = !client2.client_side_prediction;
+                    }
+                });
         }
 
         // Update server and clients at their respective intervals

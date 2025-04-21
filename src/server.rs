@@ -1,8 +1,8 @@
+use crate::client::Client;
+use crate::{world_state, Entity, LagNetwork, Message, WorldStateMessage};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::client::Client;
-use crate::{world_state, Entity, LagNetwork, Message, WorldStateMessage};
 
 pub(crate) struct Server {
     pub(crate) clients: Vec<Rc<RefCell<Client>>>,
@@ -46,7 +46,6 @@ impl Server {
     fn processInputs(&mut self) {
         while true {
             if let Some(msg) = self.network.receive() {
-
                 println!("Processing message: {:?}", msg);
 
                 match msg {
@@ -55,8 +54,7 @@ impl Server {
                         if let Some(entity) = self.entities.get_mut(&movement_input.entity_id) {
                             entity.applyInput(movement_input);
                             println!("Entity {} moved to x: {}", entity.entity_id, entity.x);
-                        }
-                        else {
+                        } else {
                             print!("Entity {} not found.", movement_input.entity_id);
                         }
                     }
@@ -71,7 +69,6 @@ impl Server {
     }
 
     fn sendWorldState(&mut self) {
-
         println!("Sending world state to clients...");
 
         let mut world_state = Vec::new();
@@ -116,7 +113,7 @@ impl Server {
 
         if self.time_since_last_update >= self.update_interval {
             self.time_since_last_update -= self.update_interval; // Reset time
-            // println!("Server updated!");
+                                                                 // println!("Server updated!");
             println!("Server updated!");
             // Process inputs and send world state
             self.processInputs();

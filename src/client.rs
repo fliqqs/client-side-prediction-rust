@@ -1,9 +1,9 @@
+use crate::{Entity, LagNetwork, Message, MovementInput};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::{Entity, LagNetwork, Message, MovementInput};
 
 use crate::server::Server;
 
@@ -17,7 +17,8 @@ pub(crate) struct Client {
     pub input_sequence_number: u32,
     pub entity_id: u32,
     pub network: LagNetwork,
-    pub entities: HashMap<u32, Entity>
+    pub entities: HashMap<u32, Entity>,
+    pub client_side_prediction: bool,
 }
 
 impl Client {
@@ -45,6 +46,7 @@ impl Client {
             entity_id: entity_id,
             network: LagNetwork { messages: vec![] },
             entities: HashMap::new(),
+            client_side_prediction: false,
         }
     }
 
@@ -103,7 +105,10 @@ impl Client {
 
                         for world_state in world_state.world_state {
                             // Update the entity's position based on the world state
-                            println!("Entity {} position: {}", world_state.entity_id, world_state.position);
+                            println!(
+                                "Entity {} position: {}",
+                                world_state.entity_id, world_state.position
+                            );
 
                             // update the entity or create it
                             if let Some(entity) = self.entities.get_mut(&world_state.entity_id) {
@@ -114,15 +119,15 @@ impl Client {
                                 let mut new_entity = Entity::new(world_state.entity_id);
                                 new_entity.x = world_state.position;
                                 self.entities.insert(world_state.entity_id, new_entity);
-                                println!("Entity {} created with x: {}", world_state.entity_id, world_state.position);
+                                println!(
+                                    "Entity {} created with x: {}",
+                                    world_state.entity_id, world_state.position
+                                );
                             }
-
                         }
-
                     }
                     Message::Movement(movement_input) => {
                         // clients wont get this
-
                     }
                 }
             } else {
@@ -130,7 +135,6 @@ impl Client {
                 break;
             }
         }
-
     }
 
     pub fn update(&mut self, delta_time: f32) -> Option<Message> {
@@ -140,7 +144,7 @@ impl Client {
         // Update the client only if the update interval has passed
         if self.time_since_last_update >= self.update_interval {
             self.time_since_last_update -= self.update_interval; // Reset time
-            // println!("Client updated!");
+                                                                 // println!("Client updated!");
             println!("Client updated!");
             // Perform client update tasks, such as processing input
             self.proccessServerMessages();
