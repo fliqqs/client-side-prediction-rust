@@ -19,6 +19,7 @@ pub(crate) struct Client {
     pub network: LagNetwork,
     pub entities: HashMap<u32, Entity>,
     pub client_side_prediction: bool,
+    pub latency_to_server: f32,
 }
 
 impl Client {
@@ -47,6 +48,7 @@ impl Client {
             network: LagNetwork { messages: vec![] },
             entities: HashMap::new(),
             client_side_prediction: false,
+            latency_to_server: 5.0,
         }
     }
 
@@ -64,16 +66,17 @@ impl Client {
 
         // let delta_time = seconds - self.last_time ;
 
-        let delta_seconds = ((seconds - self.last_time) / 1000.0) as f32;
+        let mut delta_seconds = ((seconds - self.last_time) / 1000.0) as f32;
 
-        println!("Delta seconds: {}", delta_seconds);
+        // println!("Delta seconds: {}", delta_seconds);
 
         self.last_time = seconds;
 
         if self.key_left {
-            println!("Client moving left! Delta time: {}", delta_seconds);
+            // println!("Client moving left! Delta time: {}", delta_seconds);
+            delta_seconds = -delta_seconds;
         } else if self.key_right {
-            println!("Client moving right! Delta time: {}", delta_seconds);
+            // println!("Client moving right! Delta time: {}", delta_seconds);
         } else {
             return None;
         }
@@ -94,7 +97,7 @@ impl Client {
 
     pub fn proccessServerMessages(&mut self) {
         // Process messages from the server
-        println!("Processing server message...");
+        // println!("Processing server message...");
 
         while true {
             if let Some(msg) = self.network.receive() {
@@ -145,8 +148,8 @@ impl Client {
         if self.time_since_last_update >= self.update_interval {
             self.time_since_last_update -= self.update_interval; // Reset time
                                                                  // println!("Client updated!");
-            println!("Client updated!");
-            // Perform client update tasks, such as processing input
+                                                                 // println!("Client updated!");
+                                                                 // Perform client update tasks, such as processing input
             self.proccessServerMessages();
             self.process_input()
         } else {

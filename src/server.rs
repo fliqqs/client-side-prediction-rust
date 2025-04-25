@@ -18,7 +18,7 @@ impl Server {
             clients: Vec::new(),
             network: LagNetwork { messages: vec![] },
             time_since_last_update: 0.0,
-            update_interval: 3.0, // 20ms
+            update_interval: 0.5, // 500 ms
             entities: HashMap::new(),
         }))
     }
@@ -26,7 +26,7 @@ impl Server {
     pub(crate) fn add_client(server: Rc<RefCell<Self>>) -> Rc<RefCell<Client>> {
         let client = Rc::new(RefCell::new(Client::new(
             Rc::downgrade(&server), // weak reference to the server
-            1.0,                    // update interval for the client
+            0.02,                   // update interval for the client
         )));
 
         server.borrow_mut().clients.push(client.clone());
@@ -85,9 +85,10 @@ impl Server {
         // Send the world state to all clients
         for client in &self.clients {
             let mut client = client.borrow_mut();
+            let latency = client.latency_to_server;
             client
                 .network
-                .send(0.1, Message::WorldState(world_state_message.clone()));
+                .send(latency, Message::WorldState(world_state_message.clone()));
         }
     }
 
@@ -95,17 +96,15 @@ impl Server {
         // tell clients to update
         self.time_since_last_update += delta_time;
 
-        let mut messages = vec![];
-
         for client in &self.clients {
+            let mut messages = vec![];
             if let Some(msg) = client.borrow_mut().update(delta_time) {
                 messages.push(msg);
             }
-        }
-
-        for msg in messages {
-            println!("putting msg in server queue: {:?}", msg);
-            self.network.send(0.0, msg); // Process outside of client loop
+            for msg in messages {
+                let client_latency = client.borrow().latency_to_server;
+                self.network.send(client_latency, msg); // Process outside of client loop
+            }
         }
 
         // do server updates

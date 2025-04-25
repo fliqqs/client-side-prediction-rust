@@ -59,7 +59,7 @@ struct WorldStateMessage {
 }
 
 struct NetworkMessage {
-    receive_time: f32,
+    receive_time: u128,
     payload: Message,
 }
 
@@ -71,10 +71,14 @@ impl LagNetwork {
     fn send(&mut self, lag_ms: f32, message: Message) {
         let now = SystemTime::now();
         let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
+        let in_ms = duration_since_epoch.as_millis();
 
         //set recv time to time now + lag_ms
-        let current_time = duration_since_epoch.as_secs_f32();
-        let receive_time = current_time + lag_ms / 1000.0;
+        let receive_time = in_ms + lag_ms as u128;
+
+        println!("lag ms: {}", lag_ms);
+        println!("in ms: {}", in_ms);
+        println!("time now + lag ms: {}", receive_time);
 
         // make the NetworkMessage
         let network_message = NetworkMessage {
@@ -88,7 +92,7 @@ impl LagNetwork {
     }
 
     fn receive(&mut self) -> Option<Message> {
-        println!("what is msg length: {}", self.messages.len());
+        // println!("what is msg length: {}", self.messages.len());
 
         if self.messages.len() == 0 {
             return None;
@@ -97,12 +101,13 @@ impl LagNetwork {
         for (i, v) in self.messages.iter().enumerate() {
             let now = SystemTime::now();
             let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
-            let current_time = duration_since_epoch.as_secs_f32();
 
-            println!("current time: {}", current_time);
-            println!("receive time: {}", v.receive_time);
+            let in_ms = duration_since_epoch.as_millis();
 
-            if current_time >= v.receive_time {
+            // println!("current time: {}", current_time);
+            // println!("receive time: {}", v.receive_time);
+
+            if in_ms >= v.receive_time {
                 let message = self.messages.remove(i);
                 println!("returning : {:?}", message.payload);
                 return Some(message.payload);
@@ -180,7 +185,11 @@ async fn main() {
                 DARKGRAY,
             );
             // Draw the entity as a rectangle
-            draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, BLUE);
+            let mut colour = RED;
+            if entity.entity_id == 1 {
+                colour = BLUE;
+            }
+            draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, colour);
         }
 
         {
@@ -201,12 +210,28 @@ async fn main() {
                         Vec2::new(10., 10.),
                         &format!("Client 1 Prediction?: {}", client.client_side_prediction),
                     );
+                    ui.label(
+                        Vec2::new(10., 100.),
+                        &format!("Client 1 lag: {}", client.latency_to_server),
+                    );
                     if ui.button(Vec2::new(10., 30.), "Toggle Prediction Client 1") {
                         client.client_side_prediction = !client.client_side_prediction;
                     }
-                    if ui.button(Vec2::new(10., 50.), "Toggle Prediction Client 2") {
+                    ui.label(
+                        Vec2::new(10., 50.),
+                        &format!("Client 2 Prediction?: {}", client2.client_side_prediction),
+                    );
+                    if ui.button(Vec2::new(10., 70.), "Toggle Prediction Client 2") {
                         client2.client_side_prediction = !client2.client_side_prediction;
                     }
+                    ui.tree_node(hash!(), "sliders", |ui| {
+                        ui.slider(
+                            hash!(),
+                            "[5 .. 500]",
+                            5f32..5000f32,
+                            &mut client.latency_to_server,
+                        );
+                    });
                 });
         }
 
