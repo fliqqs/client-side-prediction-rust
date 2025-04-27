@@ -10,6 +10,7 @@ pub(crate) struct Server {
     time_since_last_update: f32,
     update_interval: f32, // 20ms for server update interval
     pub(crate) entities: HashMap<u32, Entity>,
+    pub(crate) last_processed_inputs: HashMap<u32, f32>,
 }
 
 impl Server {
@@ -18,8 +19,9 @@ impl Server {
             clients: Vec::new(),
             network: LagNetwork { messages: vec![] },
             time_since_last_update: 0.0,
-            update_interval: 0.5, // 500 ms
+            update_interval: 0.1, // 500 ms
             entities: HashMap::new(),
+            last_processed_inputs: HashMap::new(),
         }))
     }
 
@@ -33,6 +35,9 @@ impl Server {
 
         // Create an entity for the client
         let entity_id = server.borrow().clients.len() as u32;
+
+        println!("Creating entity for client: with entity id: {}", entity_id);
+
         let entity = Entity::new(entity_id);
         server.borrow_mut().entities.insert(entity_id, entity);
 
@@ -52,7 +57,13 @@ impl Server {
                     Message::Movement(movement_input) => {
                         // update the entry if it exists
                         if let Some(entity) = self.entities.get_mut(&movement_input.entity_id) {
+                            self.last_processed_inputs.insert(
+                                movement_input.entity_id,
+                                movement_input.input_sequence_number as f32,
+                            );
                             entity.applyInput(movement_input);
+                            // Update the last processed input for the entity
+
                             println!("Entity {} moved to x: {}", entity.entity_id, entity.x);
                         } else {
                             print!("Entity {} not found.", movement_input.entity_id);
@@ -76,7 +87,7 @@ impl Server {
             world_state.push(world_state {
                 entity_id: *id,
                 position: entity.x,
-                last_processed_input: 0.0,
+                last_processed_input: self.last_processed_inputs.get(id).unwrap_or(&0.0).clone(),
             });
         }
 

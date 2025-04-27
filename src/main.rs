@@ -24,7 +24,7 @@ impl Entity {
     fn new(entity_id: u32) -> Self {
         Entity {
             x: 40.0,
-            speed: 10000,
+            speed: 20000,
             entity_id,
         }
     }
@@ -46,6 +46,17 @@ struct MovementInput {
     entity_id: u32,
     input_sequence_number: u32,
 }
+
+impl MovementInput {
+    pub(crate) fn clone(&self) -> MovementInput {
+        MovementInput {
+            press_time: self.press_time,
+            entity_id: self.entity_id,
+            input_sequence_number: self.input_sequence_number,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct world_state {
     entity_id: u32,
@@ -198,6 +209,11 @@ async fn main() {
         }
 
         {
+            let mut client2 = client2.borrow_mut();
+            draw_client_entities(client2, 300.0);
+        }
+
+        {
             let client1_ui = client1.clone();
             let client2_ui = client2.clone();
             widgets::Window::new(hash!(), vec2(400., 200.), vec2(320., 400.))
@@ -206,25 +222,17 @@ async fn main() {
                 .ui(&mut *root_ui(), move |ui| {
                     let mut client = client1_ui.borrow_mut(); // RefMut here
                     let mut client2 = client2_ui.borrow_mut(); // RefMut here
-                    ui.label(
-                        Vec2::new(10., 10.),
-                        &format!("Client 1 Prediction?: {}", client.client_side_prediction),
-                    );
-                    ui.label(
-                        Vec2::new(10., 100.),
-                        &format!("Client 1 lag: {}", client.latency_to_server),
-                    );
-                    if ui.button(Vec2::new(10., 30.), "Toggle Prediction Client 1") {
-                        client.client_side_prediction = !client.client_side_prediction;
-                    }
-                    ui.label(
-                        Vec2::new(10., 50.),
-                        &format!("Client 2 Prediction?: {}", client2.client_side_prediction),
-                    );
-                    if ui.button(Vec2::new(10., 70.), "Toggle Prediction Client 2") {
-                        client2.client_side_prediction = !client2.client_side_prediction;
-                    }
-                    ui.tree_node(hash!(), "sliders", |ui| {
+
+                    ui.tree_node(hash!(), "Client 1", |ui| {
+                        ui.label(None, &format!("Client 1 Entity ID: {}", client.entity_id));
+                        ui.label(
+                            None,
+                            &format!("Client 1 Prediction?: {}", client.client_side_prediction),
+                        );
+                        if ui.button(None, "Toggle Prediction Client 1") {
+                            client.client_side_prediction = !client.client_side_prediction;
+                        }
+                        ui.label(None, &format!("Client 1 lag: {}", client.latency_to_server));
                         ui.slider(
                             hash!(),
                             "[5 .. 500]",
@@ -232,6 +240,25 @@ async fn main() {
                             &mut client.latency_to_server,
                         );
                     });
+
+                    // if ui.button(Vec2::new(10., 30.), "Toggle Prediction Client 1") {
+                    //     client.client_side_prediction = !client.client_side_prediction;
+                    // }
+                    // ui.label(
+                    //     Vec2::new(10., 50.),
+                    //     &format!("Client 2 Prediction?: {}", client2.client_side_prediction),
+                    // );
+                    // if ui.button(Vec2::new(10., 70.), "Toggle Prediction Client 2") {
+                    //     client2.client_side_prediction = !client2.client_side_prediction;
+                    // }
+                    // ui.tree_node(hash!(), "sliders", |ui| {
+                    //     ui.slider(
+                    //         hash!(),
+                    //         "[5 .. 500]",
+                    //         5f32..5000f32,
+                    //         &mut client.latency_to_server,
+                    //     );
+                    // });
                 });
         }
 

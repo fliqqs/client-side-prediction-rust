@@ -19,6 +19,8 @@ pub(crate) struct Client {
     pub network: LagNetwork,
     pub entities: HashMap<u32, Entity>,
     pub client_side_prediction: bool,
+    pub server_reconciliation: bool,
+    pub pending_inputs: Vec<MovementInput>,
     pub latency_to_server: f32,
 }
 
@@ -34,7 +36,7 @@ impl Client {
         let last_time = duration_since_epoch.as_secs_f64();
 
         // Set the entity id to length of the clients
-        let entity_id = server.upgrade().unwrap().borrow().clients.len() as u32;
+        let entity_id = server.upgrade().unwrap().borrow().clients.len() as u32 + 1;
 
         Client {
             server,
@@ -48,7 +50,9 @@ impl Client {
             network: LagNetwork { messages: vec![] },
             entities: HashMap::new(),
             client_side_prediction: false,
-            latency_to_server: 5.0,
+            server_reconciliation: false,
+            pending_inputs: Vec::new(),
+            latency_to_server: 250.0,
         }
     }
 
@@ -91,6 +95,20 @@ impl Client {
         // Increment the input sequence number
         self.input_sequence_number += 1;
 
+        if (self.client_side_prediction) {
+            // Apply the movement input to the entity immediately for client-side prediction
+            if let Some(entity) = self.entities.get_mut(&self.entity_id) {
+                entity.applyInput(movement_input.clone());
+                println!(
+                    "Client-side prediction: Entity {} moved to x: {}",
+                    entity.entity_id, entity.x
+                );
+            }
+        }
+
+        // add to pending inputs
+        self.pending_inputs.push(movement_input.clone());
+
         // Return the movement input as a message
         Some(Message::Movement(movement_input))
     }
@@ -117,6 +135,18 @@ impl Client {
                             if let Some(entity) = self.entities.get_mut(&world_state.entity_id) {
                                 entity.x = world_state.position;
                                 println!("Entity {} updated to x: {}", entity.entity_id, entity.x);
+
+                                if (self.server_reconciliation) {
+                                    // re-apply pending inputs
+                                    let j = 0;
+                                    while (j < self.pending_inputs.len()) {
+                                        let input = self.pending_inputs[j].clone();
+                                        if (input.input_sequence_number
+                                            <= world_state.last_processed_input as u32)
+                                        {
+                                        }
+                                    }
+                                }
                             } else {
                                 // Create a new entity if it doesn't exist
                                 let mut new_entity = Entity::new(world_state.entity_id);
