@@ -51,7 +51,7 @@ impl Server {
     fn processInputs(&mut self) {
         while true {
             if let Some(msg) = self.network.receive() {
-                println!("Processing message: {:?}", msg);
+                // println!("Processing message: {:?}", msg);
 
                 match msg {
                     Message::Movement(movement_input) => {
@@ -64,9 +64,9 @@ impl Server {
                             entity.applyInput(movement_input);
                             // Update the last processed input for the entity
 
-                            println!("Entity {} moved to x: {}", entity.entity_id, entity.x);
+                            // println!("Entity {} moved to x: {}", entity.entity_id, entity.x);
                         } else {
-                            print!("Entity {} not found.", movement_input.entity_id);
+                            // print!("Entity {} not found.", movement_input.entity_id);
                         }
                     }
                     Message::WorldState(world_state) => {
@@ -80,7 +80,7 @@ impl Server {
     }
 
     fn sendWorldState(&mut self) {
-        println!("Sending world state to clients...");
+        // println!("Sending world state to clients...");
 
         let mut world_state = Vec::new();
         for (id, entity) in &self.entities {
@@ -124,8 +124,8 @@ impl Server {
         if self.time_since_last_update >= self.update_interval {
             self.time_since_last_update -= self.update_interval; // Reset time
                                                                  // println!("Server updated!");
-            println!("Server updated!");
-            // Process inputs and send world state
+                                                                 // println!("Server updated!");
+                                                                 // Process inputs and send world state
             self.processInputs();
             self.sendWorldState();
         }

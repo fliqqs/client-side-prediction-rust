@@ -22,6 +22,7 @@ pub(crate) struct Client {
     pub server_reconciliation: bool,
     pub pending_inputs: Vec<MovementInput>,
     pub latency_to_server: f32,
+    pub entity_interpolation: bool,
 }
 
 impl Client {
@@ -53,6 +54,7 @@ impl Client {
             server_reconciliation: false,
             pending_inputs: Vec::new(),
             latency_to_server: 250.0,
+            entity_interpolation: false,
         }
     }
 
@@ -99,10 +101,10 @@ impl Client {
             // Apply the movement input to the entity immediately for client-side prediction
             if let Some(entity) = self.entities.get_mut(&self.entity_id) {
                 entity.applyInput(movement_input.clone());
-                println!(
-                    "Client-side prediction: Entity {} moved to x: {}",
-                    entity.entity_id, entity.x
-                );
+                // println!(
+                //     "Client-side prediction: Entity {} moved to x: {}",
+                //     entity.entity_id, entity.x
+                // );
             }
         }
 
@@ -121,41 +123,51 @@ impl Client {
             if let Some(msg) = self.network.receive() {
                 match msg {
                     Message::WorldState(world_state) => {
-                        // Handle world state message from the server
-                        println!("Received world state: {:?}", world_state);
-
                         for world_state in world_state.world_state {
-                            // Update the entity's position based on the world state
-                            println!(
-                                "Entity {} position: {}",
-                                world_state.entity_id, world_state.position
-                            );
+                            // if this is first time we see this entity, add it to the list
+                            if !self.entities.contains_key(&world_state.entity_id) {
+                                let entity = Entity::new(world_state.entity_id);
+                                self.entities.insert(world_state.entity_id, entity);
+                            }
 
-                            // update the entity or create it
                             if let Some(entity) = self.entities.get_mut(&world_state.entity_id) {
-                                entity.x = world_state.position;
-                                println!("Entity {} updated to x: {}", entity.entity_id, entity.x);
+                                if world_state.entity_id == self.entity_id {
+                                    entity.x = world_state.position;
 
-                                if (self.server_reconciliation) {
-                                    // re-apply pending inputs
-                                    let j = 0;
-                                    while (j < self.pending_inputs.len()) {
-                                        let input = self.pending_inputs[j].clone();
-                                        if (input.input_sequence_number
-                                            <= world_state.last_processed_input as u32)
-                                        {
+                                    if self.server_reconciliation {
+                                        // re-apply the pending inputs
+                                        let mut j = 0;
+                                        while (j < self.pending_inputs.len()) {
+                                            let input = self.pending_inputs[j].clone();
+                                            if input.input_sequence_number
+                                                <= world_state.last_processed_input as u32
+                                            {
+                                                self.pending_inputs.remove(j);
+                                            } else {
+                                                // apply the input to the entity
+                                                println!(
+                                                    "Reapplying input: {}",
+                                                    input.input_sequence_number
+                                                );
+                                                entity.applyInput(input.clone());
+                                                j += 1;
+                                            }
                                         }
+                                    } else {
+                                        self.pending_inputs.clear();
+                                    }
+                                } else {
+                                    if !self.entity_interpolation {
+                                        entity.x = world_state.position;
+                                    } else {
+                                        let now = SystemTime::now();
+                                        let duration_since_epoch = now
+                                            .duration_since(UNIX_EPOCH)
+                                            .expect("Time went backwards");
+                                        let in_ms: u128 = duration_since_epoch.as_millis();
+                                        entity.position_buffer.push((in_ms, world_state.position));
                                     }
                                 }
-                            } else {
-                                // Create a new entity if it doesn't exist
-                                let mut new_entity = Entity::new(world_state.entity_id);
-                                new_entity.x = world_state.position;
-                                self.entities.insert(world_state.entity_id, new_entity);
-                                println!(
-                                    "Entity {} created with x: {}",
-                                    world_state.entity_id, world_state.position
-                                );
                             }
                         }
                     }

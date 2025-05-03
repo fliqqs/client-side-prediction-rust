@@ -12,12 +12,13 @@ use macroquad::ui::{
 };
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 struct Entity {
     x: f32,
     speed: i32,
     entity_id: u32,
+    position_buffer: Vec<(u128, f32)>,
 }
 
 impl Entity {
@@ -26,6 +27,7 @@ impl Entity {
             x: 40.0,
             speed: 20000,
             entity_id,
+            position_buffer: Vec::new(),
         }
     }
 
@@ -87,9 +89,9 @@ impl LagNetwork {
         //set recv time to time now + lag_ms
         let receive_time = in_ms + lag_ms as u128;
 
-        println!("lag ms: {}", lag_ms);
-        println!("in ms: {}", in_ms);
-        println!("time now + lag ms: {}", receive_time);
+        // println!("lag ms: {}", lag_ms);
+        // println!("in ms: {}", in_ms);
+        // println!("time now + lag ms: {}", receive_time);
 
         // make the NetworkMessage
         let network_message = NetworkMessage {
@@ -97,7 +99,7 @@ impl LagNetwork {
             payload: message,
         };
 
-        println!("Sending message: {:?}", network_message.payload);
+        // println!("Sending message: {:?}", network_message.payload);
 
         self.messages.push(network_message);
     }
@@ -120,7 +122,7 @@ impl LagNetwork {
 
             if in_ms >= v.receive_time {
                 let message = self.messages.remove(i);
-                println!("returning : {:?}", message.payload);
+                // println!("returning : {:?}", message.payload);
                 return Some(message.payload);
             }
         }
@@ -229,8 +231,18 @@ async fn main() {
                             None,
                             &format!("Client 1 Prediction?: {}", client.client_side_prediction),
                         );
+                        ui.label(
+                            None,
+                            &format!(
+                                "Client 1 Server Reconciliation?: {}",
+                                client.server_reconciliation
+                            ),
+                        );
                         if ui.button(None, "Toggle Prediction Client 1") {
                             client.client_side_prediction = !client.client_side_prediction;
+                        }
+                        if ui.button(None, "Server Reconciliation Client 1") {
+                            client.server_reconciliation = !client.server_reconciliation;
                         }
                         ui.label(None, &format!("Client 1 lag: {}", client.latency_to_server));
                         ui.slider(
@@ -238,6 +250,30 @@ async fn main() {
                             "[5 .. 500]",
                             5f32..5000f32,
                             &mut client.latency_to_server,
+                        );
+                    });
+
+                    ui.tree_node(hash!(), "Client 2", |ui| {
+                        ui.label(None, &format!("Client 2 Entity ID: {}", client2.entity_id));
+                        ui.label(
+                            None,
+                            &format!("Client 2 Prediction?: {}", client2.client_side_prediction),
+                        );
+                        if ui.button(None, "Toggle Prediction Client 2") {
+                            client2.client_side_prediction = !client2.client_side_prediction;
+                        }
+                        if ui.button(None, "Server Reconciliation Client 2") {
+                            client2.server_reconciliation = !client2.server_reconciliation;
+                        }
+                        ui.label(
+                            None,
+                            &format!("Client 2 lag: {}", client2.latency_to_server),
+                        );
+                        ui.slider(
+                            hash!(),
+                            "[5 .. 500]",
+                            5f32..5000f32,
+                            &mut client2.latency_to_server,
                         );
                     });
 
