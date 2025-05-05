@@ -8,7 +8,7 @@ pub(crate) struct Server {
     pub(crate) clients: Vec<Rc<RefCell<Client>>>,
     network: LagNetwork,
     time_since_last_update: f32,
-    update_interval: f32, // 20ms for server update interval
+    pub(crate) update_interval: f32, // 20ms for server update interval
     pub(crate) entities: HashMap<u32, Entity>,
     pub(crate) last_processed_inputs: HashMap<u32, f32>,
 }
@@ -19,7 +19,7 @@ impl Server {
             clients: Vec::new(),
             network: LagNetwork { messages: vec![] },
             time_since_last_update: 0.0,
-            update_interval: 0.1, // 500 ms
+            update_interval: 0.1, // 100 ms
             entities: HashMap::new(),
             last_processed_inputs: HashMap::new(),
         }))
@@ -28,7 +28,7 @@ impl Server {
     pub(crate) fn add_client(server: Rc<RefCell<Self>>) -> Rc<RefCell<Client>> {
         let client = Rc::new(RefCell::new(Client::new(
             Rc::downgrade(&server), // weak reference to the server
-            0.02,                   // update interval for the client
+            0.02,                   // 20 ms
         )));
 
         server.borrow_mut().clients.push(client.clone());
@@ -51,8 +51,6 @@ impl Server {
     fn processInputs(&mut self) {
         while true {
             if let Some(msg) = self.network.receive() {
-                // println!("Processing message: {:?}", msg);
-
                 match msg {
                     Message::Movement(movement_input) => {
                         // update the entry if it exists
@@ -62,11 +60,6 @@ impl Server {
                                 movement_input.input_sequence_number as f32,
                             );
                             entity.applyInput(movement_input);
-                            // Update the last processed input for the entity
-
-                            // println!("Entity {} moved to x: {}", entity.entity_id, entity.x);
-                        } else {
-                            // print!("Entity {} not found.", movement_input.entity_id);
                         }
                     }
                     Message::WorldState(world_state) => {
@@ -107,9 +100,14 @@ impl Server {
         // tell clients to update
         self.time_since_last_update += delta_time;
 
+        let server_update_interval = self.update_interval;
+
         for client in &self.clients {
             let mut messages = vec![];
-            if let Some(msg) = client.borrow_mut().update(delta_time) {
+            if let Some(msg) = client
+                .borrow_mut()
+                .update(delta_time, server_update_interval)
+            {
                 messages.push(msg);
             }
             for msg in messages {

@@ -25,7 +25,7 @@ impl Entity {
     fn new(entity_id: u32) -> Self {
         Entity {
             x: 40.0,
-            speed: 20000,
+            speed: 40000,
             entity_id,
             position_buffer: Vec::new(),
         }
@@ -89,24 +89,16 @@ impl LagNetwork {
         //set recv time to time now + lag_ms
         let receive_time = in_ms + lag_ms as u128;
 
-        // println!("lag ms: {}", lag_ms);
-        // println!("in ms: {}", in_ms);
-        // println!("time now + lag ms: {}", receive_time);
-
         // make the NetworkMessage
         let network_message = NetworkMessage {
             receive_time: receive_time,
             payload: message,
         };
 
-        // println!("Sending message: {:?}", network_message.payload);
-
         self.messages.push(network_message);
     }
 
     fn receive(&mut self) -> Option<Message> {
-        // println!("what is msg length: {}", self.messages.len());
-
         if self.messages.len() == 0 {
             return None;
         }
@@ -117,12 +109,8 @@ impl LagNetwork {
 
             let in_ms = duration_since_epoch.as_millis();
 
-            // println!("current time: {}", current_time);
-            // println!("receive time: {}", v.receive_time);
-
             if in_ms >= v.receive_time {
                 let message = self.messages.remove(i);
-                // println!("returning : {:?}", message.payload);
                 return Some(message.payload);
             }
         }
@@ -238,11 +226,21 @@ async fn main() {
                                 client.server_reconciliation
                             ),
                         );
+                        ui.label(
+                            None,
+                            &format!(
+                                "Client 1 Entity Interpolation: {}",
+                                client.entity_interpolation
+                            ),
+                        );
                         if ui.button(None, "Toggle Prediction Client 1") {
                             client.client_side_prediction = !client.client_side_prediction;
                         }
                         if ui.button(None, "Server Reconciliation Client 1") {
                             client.server_reconciliation = !client.server_reconciliation;
+                        }
+                        if ui.button(None, "Toggle Interpolation Client 1") {
+                            client.entity_interpolation = !client.entity_interpolation;
                         }
                         ui.label(None, &format!("Client 1 lag: {}", client.latency_to_server));
                         ui.slider(
@@ -276,25 +274,6 @@ async fn main() {
                             &mut client2.latency_to_server,
                         );
                     });
-
-                    // if ui.button(Vec2::new(10., 30.), "Toggle Prediction Client 1") {
-                    //     client.client_side_prediction = !client.client_side_prediction;
-                    // }
-                    // ui.label(
-                    //     Vec2::new(10., 50.),
-                    //     &format!("Client 2 Prediction?: {}", client2.client_side_prediction),
-                    // );
-                    // if ui.button(Vec2::new(10., 70.), "Toggle Prediction Client 2") {
-                    //     client2.client_side_prediction = !client2.client_side_prediction;
-                    // }
-                    // ui.tree_node(hash!(), "sliders", |ui| {
-                    //     ui.slider(
-                    //         hash!(),
-                    //         "[5 .. 500]",
-                    //         5f32..5000f32,
-                    //         &mut client.latency_to_server,
-                    //     );
-                    // });
                 });
         }
 

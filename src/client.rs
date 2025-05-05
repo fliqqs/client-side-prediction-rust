@@ -101,10 +101,6 @@ impl Client {
             // Apply the movement input to the entity immediately for client-side prediction
             if let Some(entity) = self.entities.get_mut(&self.entity_id) {
                 entity.applyInput(movement_input.clone());
-                // println!(
-                //     "Client-side prediction: Entity {} moved to x: {}",
-                //     entity.entity_id, entity.x
-                // );
             }
         }
 
@@ -145,10 +141,6 @@ impl Client {
                                                 self.pending_inputs.remove(j);
                                             } else {
                                                 // apply the input to the entity
-                                                println!(
-                                                    "Reapplying input: {}",
-                                                    input.input_sequence_number
-                                                );
                                                 entity.applyInput(input.clone());
                                                 j += 1;
                                             }
@@ -182,7 +174,42 @@ impl Client {
         }
     }
 
-    pub fn update(&mut self, delta_time: f32) -> Option<Message> {
+    pub fn interpolateEntities(&mut self, server_update_interval: f32) {
+        let now = SystemTime::now();
+        let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
+        let in_ms = duration_since_epoch.as_millis();
+
+        let render_timestamp = in_ms - (1000.0 * server_update_interval as f32).floor() as u128;
+
+        for (id, entity) in &mut self.entities {
+            if id == &self.entity_id {
+                continue;
+            }
+
+            // Find the two authoritative positions surrounding the rendering timestamp.
+            let mut buffer = entity.position_buffer.clone();
+
+            while buffer.len() >= 2 && buffer[1].0 <= render_timestamp {
+                buffer.remove(0);
+            }
+
+            if (buffer.len() >= 2
+                && buffer[0].0 <= render_timestamp
+                && render_timestamp <= buffer[1].0)
+            {
+                let t =
+                    (render_timestamp - buffer[0].0) as f32 / (buffer[1].0 - buffer[0].0) as f32;
+                let interpolated_position = buffer[0].1 + t * (buffer[1].1 - buffer[0].1);
+                entity.x = interpolated_position;
+            } else if (buffer.len() == 1 && buffer[0].0 <= render_timestamp) {
+                entity.x = buffer[0].1;
+            } else {
+                // println!("No interpolation needed for entity {}", id);
+            }
+        }
+    }
+
+    pub fn update(&mut self, delta_time: f32, server_update_interval: f32) -> Option<Message> {
         // Accumulate time for the client
         self.time_since_last_update += delta_time;
 
@@ -193,6 +220,11 @@ impl Client {
                                                                  // println!("Client updated!");
                                                                  // Perform client update tasks, such as processing input
             self.proccessServerMessages();
+
+            if self.entity_interpolation {
+                self.interpolateEntities(server_update_interval);
+            }
+
             self.process_input()
         } else {
             None
