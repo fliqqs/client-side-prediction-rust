@@ -1,0 +1,12 @@
+[tasks.wasm-release]
+command = "cargo"
+args = ["build", "--release", "--target", "wasm32-unknown-unknown"]
+
+[tasks.copy-wasm]
+script = [
+    "cp target/wasm32-unknown-unknown/release/*.wasm public/",
+    "cp macroquad-js/macroquad.js public/"
+]
+
+[tasks.build]
+dependencies = ["wasm-release", "copy-wasm"]
