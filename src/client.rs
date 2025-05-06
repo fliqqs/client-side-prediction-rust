@@ -1,11 +1,10 @@
-use crate::{Entity, LagNetwork, Message, MovementInput};
+use crate::server::Server;
+use crate::{get_time_ms, Entity, LagNetwork, Message, MovementInput};
+use macroquad::time::get_time;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use crate::server::Server;
 
 pub(crate) struct Client {
     pub server: Weak<RefCell<Server>>, // Weak reference to avoid circular dependency
@@ -28,13 +27,9 @@ pub(crate) struct Client {
 impl Client {
     pub fn new(server: Weak<RefCell<Server>>, update_interval: f32) -> Self {
         // Get the current time as SystemTime
-        let now = SystemTime::now();
-
-        // Convert SystemTime to seconds since the Unix epoch
-        let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
 
         // Convert the duration to seconds as a f64
-        let last_time = duration_since_epoch.as_secs_f64();
+        let last_time = get_time();
 
         // Set the entity id to length of the clients
         let entity_id = server.upgrade().unwrap().borrow().clients.len() as u32 + 1;
@@ -63,18 +58,8 @@ impl Client {
     }
 
     pub fn process_input(&mut self) -> Option<Message> {
-        //current time
-        let now = SystemTime::now();
-        // Convert SystemTime to seconds since the Unix epoch
-        let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
-        // Convert the duration to seconds as a f64 (like Python's time.time())
-        let seconds = duration_since_epoch.as_secs_f64();
-
-        // let delta_time = seconds - self.last_time ;
-
+        let seconds = get_time();
         let mut delta_seconds = ((seconds - self.last_time) / 1000.0) as f32;
-
-        // println!("Delta seconds: {}", delta_seconds);
 
         self.last_time = seconds;
 
@@ -152,11 +137,7 @@ impl Client {
                                     if !self.entity_interpolation {
                                         entity.x = world_state.position;
                                     } else {
-                                        let now = SystemTime::now();
-                                        let duration_since_epoch = now
-                                            .duration_since(UNIX_EPOCH)
-                                            .expect("Time went backwards");
-                                        let in_ms: u128 = duration_since_epoch.as_millis();
+                                        let in_ms: u128 = get_time_ms();
                                         entity.position_buffer.push((in_ms, world_state.position));
                                     }
                                 }
@@ -175,9 +156,7 @@ impl Client {
     }
 
     pub fn interpolateEntities(&mut self, server_update_interval: f32) {
-        let now = SystemTime::now();
-        let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
-        let in_ms = duration_since_epoch.as_millis();
+        let in_ms = get_time_ms();
 
         let render_timestamp = in_ms - (1000.0 * server_update_interval as f32).floor() as u128;
 

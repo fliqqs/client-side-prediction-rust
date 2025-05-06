@@ -12,7 +12,10 @@ use macroquad::ui::{
 };
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+fn get_time_ms() -> u128 {
+    (get_time() * 1000.0) as u128
+}
 
 struct Entity {
     x: f32,
@@ -24,7 +27,7 @@ struct Entity {
 impl Entity {
     fn new(entity_id: u32) -> Self {
         Entity {
-            x: 40.0,
+            x: 40.0 + entity_id as f32 * 100.0,
             speed: 40000,
             entity_id,
             position_buffer: Vec::new(),
@@ -82,9 +85,7 @@ struct LagNetwork {
 
 impl LagNetwork {
     fn send(&mut self, lag_ms: f32, message: Message) {
-        let now = SystemTime::now();
-        let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
-        let in_ms = duration_since_epoch.as_millis();
+        let in_ms = get_time_ms();
 
         //set recv time to time now + lag_ms
         let receive_time = in_ms + lag_ms as u128;
@@ -104,10 +105,7 @@ impl LagNetwork {
         }
 
         for (i, v) in self.messages.iter().enumerate() {
-            let now = SystemTime::now();
-            let duration_since_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
-
-            let in_ms = duration_since_epoch.as_millis();
+            let in_ms = get_time_ms();
 
             if in_ms >= v.receive_time {
                 let message = self.messages.remove(i);
@@ -118,8 +116,38 @@ impl LagNetwork {
     }
 }
 
+fn draw_coloured_rectangle(x: f32, y: f32, width: f32, height: f32, colour: Color) {
+    // draw with line thickness of 2.0
+    draw_line(x, y, x + width, y, 2.0, colour);
+}
+
 // function for drawing things on the screen
 fn draw_client_entities(client: RefMut<Client>, y_offset: f32) {
+    let player_colour = if client.entity_id == 1 { BLUE } else { RED };
+
+    // draw outline rectangle
+    draw_rectangle_lines(
+        10.0,
+        y_offset - 65.0,
+        screen_width() - 20.0,
+        120.0,
+        2.0,
+        player_colour,
+    );
+
+    let mut move_message = "move with LEFT and RIGHT arrow keys";
+    if client.entity_id == 2 {
+        move_message = "move with A and D keys"
+    }
+
+    draw_text(
+        &format!("Player {} view - {}", client.entity_id, move_message),
+        20.0,
+        y_offset - 40.0,
+        20.0,
+        DARKGRAY,
+    );
+
     for (id, entity) in client.entities.iter() {
         draw_text(
             &format!("Client Entity {}: x = {}", id, entity.x),
@@ -129,13 +157,10 @@ fn draw_client_entities(client: RefMut<Client>, y_offset: f32) {
             DARKGRAY,
         );
         // Draw the entity as a rectangle
-        draw_rectangle(
-            entity.x,
-            y_offset + 40.0 + (*id as f32 * 20.0),
-            20.0,
-            20.0,
-            BLUE,
-        );
+
+        let entity_colour = if entity.entity_id == 1 { BLUE } else { RED };
+
+        draw_rectangle(entity.x, y_offset + 40.0, 20.0, 20.0, entity_colour);
     }
 }
 
@@ -174,33 +199,34 @@ async fn main() {
 
         // Clear the screen for each frame
         clear_background(LIGHTGRAY);
-        draw_text("Server View", 20.0, 20.0, 30.0, DARKGRAY);
 
-        // Draw Server Entities
-        for (id, entity) in server.borrow().entities.iter() {
-            draw_text(
-                &format!("Entity {}: x = {}", id, entity.x),
-                20.0,
-                20.0 + (*id as f32 * 20.0),
-                20.0,
-                DARKGRAY,
-            );
-            // Draw the entity as a rectangle
-            let mut colour = RED;
-            if entity.entity_id == 1 {
-                colour = BLUE;
-            }
-            draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, colour);
-        }
+        // draw_text("Server View", 20.0, 20.0, 30.0, DARKGRAY);
+        //
+        // // Draw Server Entities
+        // for (id, entity) in server.borrow().entities.iter() {
+        //     draw_text(
+        //         &format!("Entity {}: x = {}", id, entity.x),
+        //         20.0,
+        //         20.0 + (*id as f32 * 20.0),
+        //         20.0,
+        //         DARKGRAY,
+        //     );
+        //     // Draw the entity as a rectangle
+        //     let mut colour = RED;
+        //     if entity.entity_id == 1 {
+        //         colour = BLUE;
+        //     }
+        //     draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, colour);
+        // }
 
         {
             let mut client1 = client1.borrow_mut();
-            draw_client_entities(client1, 150.0);
+            draw_client_entities(client1, 120.0);
         }
 
         {
             let mut client2 = client2.borrow_mut();
-            draw_client_entities(client2, 300.0);
+            draw_client_entities(client2, 450.0);
         }
 
         {
