@@ -4,8 +4,7 @@ args = ["build", "--release", "--target", "wasm32-unknown-unknown"]
 
 [tasks.copy-wasm]
 script = [
-    "cp target/wasm32-unknown-unknown/release/*.wasm public/",
-    "cp macroquad-js/macroquad.js public/"
+    "cp target/wasm32-unknown-unknown/release/*.wasm public/"
 ]
 
 [tasks.build]
