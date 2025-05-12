@@ -148,20 +148,44 @@ fn draw_client_entities(client: RefMut<Client>, y_offset: f32) {
         DARKGRAY,
     );
 
+    // write the number of non-acknowledged messages
+    draw_text(
+        &format!("Non-acknowledged messages: {}", client.pending_inputs.len()),
+        20.0,
+        y_offset - 20.0,
+        20.0,
+        DARKGRAY,
+    );
+
     for (id, entity) in client.entities.iter() {
-        draw_text(
-            &format!("Client Entity {}: x = {}", id, entity.x),
-            20.0,
-            y_offset + (*id as f32 * 20.0),
-            20.0,
-            DARKGRAY,
-        );
-        // Draw the entity as a rectangle
-
         let entity_colour = if entity.entity_id == 1 { BLUE } else { RED };
-
-        draw_rectangle(entity.x, y_offset + 40.0, 20.0, 20.0, entity_colour);
+        draw_rectangle(entity.x, y_offset + 20.0, 20.0, 20.0, entity_colour);
     }
+}
+
+fn draw_server_perspective(s: RefMut<Server>) {
+    draw_rectangle_lines(10.0, 220.0, screen_width() - 20.0, 120.0, 2.0, DARKGRAY);
+
+    for (id, entity) in s.entities.iter() {
+        // Draw the entity as a rectangle
+        let mut colour = RED;
+        if entity.entity_id == 1 {
+            colour = BLUE;
+        }
+        draw_rectangle(entity.x, 260.0, 20.0, 20.0, colour);
+    }
+
+    draw_text(
+        &format!(
+            "Last Acknowledged: Player 0 - {} Player 1 - {}",
+            s.last_processed_inputs.get(&1).unwrap_or(&0.0),
+            s.last_processed_inputs.get(&2).unwrap_or(&0.0)
+        ),
+        20.0,
+        240.0,
+        20.0,
+        DARKGRAY,
+    );
 }
 
 #[macroquad::main("Netcode Example")]
@@ -200,24 +224,10 @@ async fn main() {
         // Clear the screen for each frame
         clear_background(LIGHTGRAY);
 
-        // draw_text("Server View", 20.0, 20.0, 30.0, DARKGRAY);
-        //
-        // // Draw Server Entities
-        // for (id, entity) in server.borrow().entities.iter() {
-        //     draw_text(
-        //         &format!("Entity {}: x = {}", id, entity.x),
-        //         20.0,
-        //         20.0 + (*id as f32 * 20.0),
-        //         20.0,
-        //         DARKGRAY,
-        //     );
-        //     // Draw the entity as a rectangle
-        //     let mut colour = RED;
-        //     if entity.entity_id == 1 {
-        //         colour = BLUE;
-        //     }
-        //     draw_rectangle(entity.x, 40.0 + (*id as f32 * 20.0), 20.0, 20.0, colour);
-        // }
+        {
+            let mut server = server.borrow_mut();
+            draw_server_perspective(server);
+        }
 
         {
             let mut client1 = client1.borrow_mut();
@@ -232,74 +242,37 @@ async fn main() {
         {
             let client1_ui = client1.clone();
             let client2_ui = client2.clone();
-            widgets::Window::new(hash!(), vec2(400., 200.), vec2(320., 400.))
+            widgets::Window::new(hash!(), vec2(400., 200.), vec2(200., 220.))
                 .label("Settings")
                 .titlebar(true)
                 .ui(&mut *root_ui(), move |ui| {
                     let mut client = client1_ui.borrow_mut(); // RefMut here
                     let mut client2 = client2_ui.borrow_mut(); // RefMut here
 
-                    ui.tree_node(hash!(), "Client 1", |ui| {
-                        ui.label(None, &format!("Client 1 Entity ID: {}", client.entity_id));
+                    for (mut client, label) in vec![(client, "Client 1"), (client2, "Client 2")] {
+                        ui.label(None, &format!("{} Entity ID: {}", label, client.entity_id));
                         ui.label(
                             None,
-                            &format!("Client 1 Prediction?: {}", client.client_side_prediction),
+                            &format!("Prediction?: {}", client.client_side_prediction),
                         );
                         ui.label(
                             None,
-                            &format!(
-                                "Client 1 Server Reconciliation?: {}",
-                                client.server_reconciliation
-                            ),
+                            &format!("Reconciliation?: {}", client.server_reconciliation),
                         );
                         ui.label(
                             None,
-                            &format!(
-                                "Client 1 Entity Interpolation: {}",
-                                client.entity_interpolation
-                            ),
+                            &format!("Interpolation: {}", client.entity_interpolation),
                         );
-                        if ui.button(None, "Toggle Prediction Client 1") {
+                        if ui.button(None, "Toggle Prediction") {
                             client.client_side_prediction = !client.client_side_prediction;
                         }
-                        if ui.button(None, "Server Reconciliation Client 1") {
+                        if ui.button(None, "Toggle Reconciliation") {
                             client.server_reconciliation = !client.server_reconciliation;
                         }
-                        if ui.button(None, "Toggle Interpolation Client 1") {
+                        if ui.button(None, "Toggle Interpolation") {
                             client.entity_interpolation = !client.entity_interpolation;
                         }
-                        ui.label(None, &format!("Client 1 lag: {}", client.latency_to_server));
-                        ui.slider(
-                            hash!(),
-                            "[5 .. 500]",
-                            5f32..5000f32,
-                            &mut client.latency_to_server,
-                        );
-                    });
-
-                    ui.tree_node(hash!(), "Client 2", |ui| {
-                        ui.label(None, &format!("Client 2 Entity ID: {}", client2.entity_id));
-                        ui.label(
-                            None,
-                            &format!("Client 2 Prediction?: {}", client2.client_side_prediction),
-                        );
-                        if ui.button(None, "Toggle Prediction Client 2") {
-                            client2.client_side_prediction = !client2.client_side_prediction;
-                        }
-                        if ui.button(None, "Server Reconciliation Client 2") {
-                            client2.server_reconciliation = !client2.server_reconciliation;
-                        }
-                        ui.label(
-                            None,
-                            &format!("Client 2 lag: {}", client2.latency_to_server),
-                        );
-                        ui.slider(
-                            hash!(),
-                            "[5 .. 500]",
-                            5f32..5000f32,
-                            &mut client2.latency_to_server,
-                        );
-                    });
+                    }
                 });
         }
 
