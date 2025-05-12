@@ -242,36 +242,38 @@ async fn main() {
         {
             let client1_ui = client1.clone();
             let client2_ui = client2.clone();
-            widgets::Window::new(hash!(), vec2(400., 200.), vec2(200., 220.))
+            widgets::Window::new(hash!(), vec2(500., 20.), vec2(200., 500.))
                 .label("Settings")
                 .titlebar(true)
                 .ui(&mut *root_ui(), move |ui| {
                     let mut client = client1_ui.borrow_mut(); // RefMut here
                     let mut client2 = client2_ui.borrow_mut(); // RefMut here
 
-                    for (mut client, label) in vec![(client, "Client 1"), (client2, "Client 2")] {
-                        ui.label(None, &format!("{} Entity ID: {}", label, client.entity_id));
+                    for (mut c, label) in vec![(client, "Client 1"), (client2, "Client 2")] {
+                        ui.label(None, &format!("{} Entity ID: {}", label, c.entity_id));
+                        ui.label(None, &format!("Prediction?: {}", c.client_side_prediction));
                         ui.label(
                             None,
-                            &format!("Prediction?: {}", client.client_side_prediction),
+                            &format!("Reconciliation?: {}", c.server_reconciliation),
                         );
-                        ui.label(
-                            None,
-                            &format!("Reconciliation?: {}", client.server_reconciliation),
-                        );
-                        ui.label(
-                            None,
-                            &format!("Interpolation: {}", client.entity_interpolation),
-                        );
+                        ui.label(None, &format!("Interpolation: {}", c.entity_interpolation));
                         if ui.button(None, "Toggle Prediction") {
-                            client.client_side_prediction = !client.client_side_prediction;
+                            c.client_side_prediction = !c.client_side_prediction;
                         }
                         if ui.button(None, "Toggle Reconciliation") {
-                            client.server_reconciliation = !client.server_reconciliation;
+                            c.server_reconciliation = !c.server_reconciliation;
                         }
                         if ui.button(None, "Toggle Interpolation") {
-                            client.entity_interpolation = !client.entity_interpolation;
+                            c.entity_interpolation = !c.entity_interpolation;
                         }
+                        ui.label(None, &format!("Lag: {}", c.latency_to_server));
+
+                        ui.slider(
+                            hash!(label),
+                            "[5 .. 500]",
+                            5f32..5000f32,
+                            &mut c.latency_to_server,
+                        );
                     }
                 });
         }
