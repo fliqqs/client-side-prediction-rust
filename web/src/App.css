@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root {
+  --primary-color: #42A9EE;
+  --secondary-color: #C3C3C3;
+  --font-color: #EEEEEE;
+  --background-color: #1C1C1C;
+  --global-font-size: 16px;
+  --global-line-height: 1.6em;
+  --global-space: 10px;
+  --page-width: 60em;
+  --font-stack: 'Roboto Mono', Menlo, Monaco, 'Lucida Console', 
+    'Liberation Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 
+    'Courier New', monospace, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-stack);
+  font-size: var(--global-font-size);
+  color: var(--font-color);
+  line-height: var(--global-line-height);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background-color);
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-color);
+}
+
+.container {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: calc(var(--global-space) * 2);
+  width: 100%;
+  flex: 1;
+}
+
+.description {
+  margin-bottom: calc(var(--global-space) * 2);
+  padding: calc(var(--global-space) * 1.5);
+  border-left: 3px solid var(--primary-color);
+  background-color: rgba(66, 169, 238, 0.05);
+}
+
+.description p {
+  margin: 0;
+  color: var(--font-color);
+  line-height: var(--global-line-height);
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: var(--global-space);
+  }
+  
+  .description {
+    padding: var(--global-space);
+    margin-bottom: var(--global-space);
+  }
+}

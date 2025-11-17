@@ -1,0 +1,26 @@
+.wasm-demo-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: calc(var(--global-space) * 2) 0;
+}
+
+#glcanvas {
+  display: block;
+  width: 100%;
+  max-width: 800px;
+  height: 600px;
+  background: #000000;
+  border: 1px solid var(--secondary-color);
+}
+
+@media (max-width: 768px) {
+  #glcanvas {
+    height: 400px;
+  }
+  
+  .wasm-demo-container {
+    padding: var(--global-space) 0;
+  }
+}
